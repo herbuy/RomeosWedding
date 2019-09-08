@@ -1,0 +1,1 @@
+[25-Sep-2018 09:19:01 Europe/London] PHP Fatal error:  Call to undefined method NotificationVerb::past_tense() in D:\portable-apps\UniserverZ\www\romeoswedding\ui\notification_builder.php on line 49
