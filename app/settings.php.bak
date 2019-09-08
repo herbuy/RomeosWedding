@@ -1,0 +1,39 @@
+<?php
+class WebsiteSettings{
+    //todo: an object to store application settings. Change them to match your needs
+    public function db_host(){
+        return TheWebsite::is_offline() ? "localhost": "smatcash";
+    }
+    public function db_username(){
+        return TheWebsite::is_offline() ? "root": "herbert";
+    }
+    public function db_password(){
+        return TheWebsite::is_offline() ? "usbw": "#h.e.r.b.e.r.t#";
+    }
+    public function db_name(){
+        return TheWebsite::is_offline() ? "romeo": "romeo";
+    }
+
+    public function build_web_address($web_address){
+        if(TheWebsite::is_online()){
+            $web_address->add_domain_component("192");
+            $web_address->add_domain_component("168");
+            $web_address->add_domain_component("43");
+            $web_address->add_domain_component("182");
+        }
+        else{
+            $web_address->add_domain_component("localhost");
+            $web_address->add_path_part("romeoswedding");
+        }
+        return $web_address;
+    }
+    
+    public function host_file_for_php_sitemap(){
+        return TheWebsite::is_offline() ? "sitemap.phpobject.localhost": "sitemap.phpobject";        
+    }
+
+    public function host_file_for_xml_sitemap(){
+        return TheWebsite::is_offline() ? "sitemap.localhost.xml": "sitemap.xml";
+    }
+
+}

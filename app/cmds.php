@@ -1,0 +1,854 @@
+<?php
+class APIResultCache{
+    //todo: object to cache results of a cmd
+    private static $cache_as_array = array();
+    public static function add_result($key_to_uniquely_identify_result, $value){
+        self::$cache_as_array[$key_to_uniquely_identify_result] = $value;
+    }
+    public static function get_result($key){
+        return self::contains($key) ? self::$cache_as_array[$key] : null;
+    }
+    public static function contains($key)
+    {
+        return array_key_exists($key, self::$cache_as_array);
+    }
+
+    public static function add_result_if($condition_to_test, $value_to_add,$key_to_uniquely_identify_result)
+    {
+        if($condition_to_test){
+            self::add_result($key_to_uniquely_identify_result,$value_to_add);
+        }
+    }
+}
+
+abstract class CmdBaseClass{
+    //todo: store tasks performed by all cmds irrespective of which kind of app
+
+    private static $last_responses = array();
+    /** @param \ReaderForValuesStoredInArray $reader */
+    protected function setLastResponse($reader){
+        self::$last_responses[$this->procedure_name()] = $reader;
+    }
+    /** @return ReaderForValuesStoredInArray */
+    public function readerForlastResponse(){
+        return
+            array_key_exists($this->procedure_name(),self::$last_responses) ?
+            self::$last_responses[$this->procedure_name()] : app::reader(array());
+    }
+
+    private static $last_errors = array();
+    protected function setLastError($error){        
+        self::$last_errors[$this->procedure_name()] = $error;
+    }
+    public function lastError(){
+        return
+            array_key_exists($this->procedure_name(),self::$last_errors) ?
+                self::$last_errors[$this->procedure_name()] : "";
+    }
+    public function lastErrorNotEmpty(){
+        return strlen(trim($this->lastError())) > 0;
+    }
+
+    ///==================
+
+    abstract protected function procedure_name();
+    abstract protected function unpackError($error);
+    /** @param \ReaderForValuesStoredInArray $reader_for_content */
+    protected function unpackContent($reader_for_content){
+        return $reader_for_content;
+    }
+    abstract public function result_array();
+
+    public function unpackThisContent($items){
+        return $this->unpackContent($items);
+    }
+
+    protected function setRemoteProcedureArgument($key,$value){
+        $_REQUEST[$key] = $value;
+    }
+
+    //can be overidden
+    protected function cacheable(){
+        return false;
+    }
+
+    protected function is_duplicate_request(){
+        return false;
+    }
+    /** @return ReaderForValuesStoredInArray */
+    public function execute()
+    {
+        //test duplicate requests - designed for requests that insert or update data
+        if($this->is_duplicate_request()){
+            return "";
+        }
+
+        //fetch from cache if possible
+        $data = null;
+        if($this->cacheable() && APIResultCache::contains(__CLASS__)){
+            $data = APIResultCache::get_result(__CLASS__);
+        }
+        else{
+            //fetch the data from the api
+            $this->packRemoteProcedureArguments();
+            $data = $this->fetchData();
+            APIResultCache::add_result_if($this->cacheable(),$data,__CLASS__);
+        }
+        $unpacked_data = $this->unpackData($data);
+        return $unpacked_data;
+        //===========
+
+        //if not cached, fetch and cache if necessary
+        /*$this->packRemoteProcedureArguments();
+        $data = $this->fetchData();
+        $unpacked_data = $this->unpackData($data);
+        return $unpacked_data;*/
+    }
+
+    private function fetchData()
+    {
+        $_REQUEST[$this->fieldNameForCmd()] = $this->procedure_name();
+        ob_start();
+        $arr_result = get_api_output();// include($this->api_file_name());
+        ob_end_clean();
+        return $arr_result;
+        
+        /*$_REQUEST[$this->fieldNameForCmd()] = $this->procedure_name();
+        ob_start();
+        include($this->api_file_name());
+        $data = ob_get_contents();
+        ob_end_clean();
+        $array_of_data = json_decode($data,true);
+        return $array_of_data;*/
+    }
+
+    private function packRemoteProcedureArguments()
+    {
+
+        $_REQUEST[$this->fieldNameForCmd()] = $this->procedure_name();
+        $this->packMoreRemoteProcedureArguments();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+
+    private $was_successful = false;
+    public function wasSuccessful(){
+        return $this->was_successful;
+    }
+
+    private function unpackData($array_of_data)
+    {
+        $reader = app::reader($array_of_data);
+        //$error_field_name = 
+        $error = $reader->at(app::values()->error());
+        $content = $reader->at(app::values()->content());
+        if ($error) {
+            return $this->unpackError($error);
+        } else {
+            $this->was_successful = true;
+            return $this->unpackContent(app::reader($content));
+        }
+    }
+
+    /*protected function api_file_name()
+    {
+        return "api.php";
+    }*/
+
+    protected function fieldNameForCmd()
+    {
+        return app::values()->cmd();
+    }
+
+    protected function fieldNameForError()
+    {
+        return app::values()->error();
+    }
+
+    protected function fieldNameForContent()
+    {
+        return app::values()->content();
+    }
+}
+
+class CmdForDoNothing extends CmdBaseClass{
+    //todo: the default cmd object created when an invalid command is passed
+    public function execute()
+    {
+        return app::reader(array());
+    }
+    protected function unpackError($error)
+    {
+        return "";
+    }
+    protected function procedure_name()
+    {
+        return "";
+    }
+    public function result_array()
+    {
+        return app::result_array()->do_nothing();
+    }
+
+
+}
+abstract class CmdBaseClass2 extends CmdBaseClass{
+    //todo: this CmdBaseClass2 is the class all cmds and pages should ultimately extend
+    protected function unpackError($error)
+    {
+        $this->setLastError($error);
+        return $error;
+    }
+    protected function unpackContent($reader_for_content)
+    {
+        $this->setLastResponse($reader_for_content);
+        return parent::unpackContent($reader_for_content);
+    }
+}
+
+
+
+class CmdForNotifyEmptyCmd extends CmdBaseClass{
+    //todo: CmdForNotifyEmptyCmd is the cmd created when no cmd is specified. It has a resulting result array which simply throws an error saying empty
+    protected function unpackError($error)
+    {
+        return "";
+    }
+    protected function procedure_name()
+    {
+        return "";
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->notify_empty_cmd();
+    }
+
+}
+
+class CmdForCreateAccount extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->create_account();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->create_account();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        ui::urls()->loginPage()->gotoAddressIfSubmittedForm();
+        return parent::unpackContent($reader_for_content);
+    }
+    
+}
+
+class CmdForLogin extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->login();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {        
+        return app::result_array()->login();
+    }
+    protected function unpackContent($reader_for_content)
+    {
+        ui::urls()->adminPage()->gotoAddressIfSubmittedForm();
+        return parent::unpackContent($reader_for_content);
+    }
+
+}
+
+class CmdForLogout extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->logout();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->logout();
+    }
+    protected function unpackContent($reader_for_content)
+    {
+        ui::urls()->home()->gotoAddressIfSubmittedForm();
+        return parent::unpackContent($reader_for_content);
+    }
+
+}
+
+
+class CmdForStartNewPost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->start_new_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->start_new_post();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        $result = parent::unpackContent($reader_for_content);
+        //switch to UI based on type of post created - but the general one is the default
+        $section_id_posted = $reader_for_content->section_id();
+
+        switch ($section_id_posted){            
+            default:
+                ui::urls()->adminEditPost($reader_for_content->file_name())->gotoAddressIfSubmittedForm();
+                break;
+        }
+
+        return $result;
+    }
+}
+
+class CmdForCreateMultiplePosts extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->create_multiple_posts();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->create_multiple_posts();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {        
+        $result = parent::unpackContent($reader_for_content);
+        ui::urls()->adminPage()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+class CmdForDeletePost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->delete_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->delete_post();
+    }
+    protected function unpackContent($reader_for_content)
+    {
+        $result = parent::unpackContent($reader_for_content);
+        ui::urls()->adminViewPosts()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+class CmdForPublishPost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->publish_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {        
+        return app::result_array()->publish_post();
+    }
+
+
+    protected function unpackContent($reader_for_content)
+    {
+        //todo: the cmd for publish post also adds it to the site map upon success
+        app::sitemap()->addUrlFromString(
+            ui::urls()->view_post($reader_for_content->file_name()).""
+        );
+        
+        $result = parent::unpackContent($reader_for_content);
+        ui::urls()->adminViewPostsPublished()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+class CmdForUnPublishPost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->unpublish_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->unpublish_post();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        //todo: CmdForUnPublishPost also remove it from the site map upon success
+        app::sitemap()->removeUrlWithString(
+            ui::urls()->view_post($reader_for_content->file_name()).""
+        );
+
+        $result = parent::unpackContent($reader_for_content);
+        //ui::urls()->adminEditPost($reader_for_content->file_name())->gotoAddressIfSubmittedForm();
+        ui::urls()->adminPage()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+
+class CmdForUnPublishSelectedPosts extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->unpublish_selected_posts();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->unpublish_selected_posts();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        /*todo: THE PROBLEM IS THAT SOME OF THE FILES YOU WANTED TO UNPUBLISH MAY NOT HAVE BEEN UNPUBLISHED, SO WE
+         todo: want to remove only those which were succesfully unpublished coz they were yos
+        todo: so we need the api to somehow return the items that were unpublished by you with a given identifier code
+        todo: then we can unpublish them here. so set a todo to handle this later coz it is a bit more complex and reuires a bit more new code
+
+        */
+
+        /*app::sitemap()->removeUrlWithString(
+            ui::urls()->view_post($reader_for_content->file_name()).""
+        );*/
+
+        $result = parent::unpackContent($reader_for_content);
+        //ui::urls()->adminEditPost($reader_for_content->file_name())->gotoAddressIfSubmittedForm();
+        ui::urls()->adminPage()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+class CmdForPublishSelectedPosts extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->publish_selected_posts();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->publish_selected_posts();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        /*todo: THE PROBLEM IS THAT SOME OF THE FILES YOU WANTED TO UNPUBLISH MAY NOT HAVE BEEN UNPUBLISHED, SO WE
+         todo: want to remove only those which were succesfully unpublished coz they were yos
+        todo: so we need the api to somehow return the items that were unpublished by you with a given identifier code
+        todo: then we can unpublish them here. so set a todo to handle this later coz it is a bit more complex and reuires a bit more new code
+
+        */
+
+        /*app::sitemap()->removeUrlWithString(
+            ui::urls()->view_post($reader_for_content->file_name()).""
+        );*/
+
+        $result = parent::unpackContent($reader_for_content);        
+        ui::urls()->adminPage()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+
+class CmdForLikeThePost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->like_the_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->like_the_post();
+    }
+}
+class CmdForRegisterTheView extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->register_the_view();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->register_the_view();
+    }
+}
+
+
+class CmdForPostComment extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->post_comment();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->post_comment();
+    }
+}
+
+
+class CmdForApproveComment extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->approve_comment();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->approve_comment();
+    }
+}
+
+
+class CmdForMoveCommentToTrash extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->move_comment_to_trash();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->move_comment_to_trash();
+    }
+}
+
+class CmdForMoveCommentToSpam extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->move_comment_to_spam();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->move_comment_to_spam();
+    }
+}
+
+class CmdForPublishAllPosts extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->publish_all_posts();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->publish_all_posts();
+    }
+
+    protected function unpackContent($reader_for_content)
+    {
+        $result = parent::unpackContent($reader_for_content);
+        ui::urls()->adminViewPostsPublished()->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+abstract class CmdForEditPostField extends CmdBaseClass2{
+
+    protected function unpackContent($reader_for_content)
+    {
+        $result = parent::unpackContent($reader_for_content);
+        ui::urls()->adminEditPost($reader_for_content->file_name())->gotoAddressIfSubmittedForm();
+        return $result;
+    }
+}
+
+class CmdForEditPostTitle extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->admin_edit_post_title();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_post_title();
+    }
+}
+
+class CmdForEditPostContent extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->admin_edit_post_content();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_post_content();
+    }
+}
+
+class CmdForEditExtendedPostContent extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->admin_edit_extended_post_content();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_extended_post_content();
+    }
+}
+
+class CmdForEditPostPicture extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->admin_edit_post_picture();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_post_picture();
+    }
+}
+
+class CmdForEditPostVideo extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->admin_edit_post_video();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_post_video();
+    }
+}
+class CmdForEditProductType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_product_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_product_type();
+    }
+}
+class CmdForEditFacilityType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_facility_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_facility_type();
+    }
+}
+
+class CmdForEditWorkType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_work_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_work_type();
+    }
+}
+
+class CmdForEditEventType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_event_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_event_type();
+    }
+}
+
+class CmdForEditProfileType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_profile_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_profile_type();
+    }
+}
+
+class CmdForEditArticleType extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->edit_article_type();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->edit_article_type();
+    }
+}
+class CmdForAddPhotoCredit extends CmdForEditPostField{
+
+    protected function procedure_name()
+    {
+        return app::values()->add_photo_credit();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->add_photo_credit();
+    }
+}
+
+class CmdForAddImage extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->add_image();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->add_image();
+    }
+    protected function unpackContent($reader_for_content)
+    {
+        //ui::urls()->view_image($reader_for_content->file_name())->addToSitemap();
+        return parent::unpackContent($reader_for_content);
+    }
+
+}
+
+
+class CmdForAttachImageToPost extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->attach_image_to_post();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->attach_image_to_post();
+    }  
+
+}
+
+
+class CmdForGetDataPage extends CmdBaseClass2{
+
+    protected function procedure_name()
+    {
+        return app::values()->get_data_page();
+    }
+    protected function packMoreRemoteProcedureArguments(){
+
+    }
+    public function result_array()
+    {
+        return app::result_array()->get_data_page();
+    }
+
+}
+
+
+//app specific
+
+
