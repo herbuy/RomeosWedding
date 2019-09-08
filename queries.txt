@@ -1,0 +1,37 @@
+thread_id:39
+---------
+#
+(SELECT `email_address` FROM `sessions` WHERE `session_id`='p1cihjd2i2v23ougi99bj49t46' LIMIT 0,1);
+(SELECT *,IF(EXISTS((SELECT COUNT(`file_name`) FROM `views` WHERE `views`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `views` WHERE `views`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `views`,IF(EXISTS((SELECT COUNT(`file_name`) FROM `likes` WHERE `likes`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `likes` WHERE `likes`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `likes`,IF(EXISTS((SELECT COUNT(`file_name`) FROM `comments` WHERE `comments`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `comments` WHERE `comments`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `comments`,IF(EXISTS((SELECT `full_name` FROM `users` WHERE `users`.`entity_id`=`posts`.`author_id`))=1,(SELECT `full_name` FROM `users` WHERE `users`.`entity_id`=`posts`.`author_id`),'') AS `author_name` FROM `posts` WHERE `entity_id` IS NOT NULL ORDER BY `total_score` DESC LIMIT 0,50);
+(SELECT * FROM `departments`);
+(SELECT * FROM `item_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`product_type_code`=`product_types`.`product_type_code` LIMIT 0,1) AS `picture_file_name` FROM `product_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`work_type_code`=`work_types`.`work_type_code` LIMIT 0,1) AS `picture_file_name` FROM `work_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`facility_type_code`=`facility_types`.`facility_type_code` LIMIT 0,1) AS `picture_file_name` FROM `facility_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`event_type_code`=`event_types`.`event_type_code` LIMIT 0,1) AS `picture_file_name` FROM `event_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`article_type_code`=`article_types`.`article_type_code` LIMIT 0,1) AS `picture_file_name` FROM `article_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`profile_type_code`=`profile_types`.`profile_type_code` LIMIT 0,1) AS `picture_file_name` FROM `profile_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`status_type_code`=`status_types`.`status_type_code` LIMIT 0,1) AS `picture_file_name` FROM `status_types`);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+thread_id:40
+---------
+#
+(SELECT `email_address` FROM `sessions` WHERE `session_id`='p1cihjd2i2v23ougi99bj49t46' LIMIT 0,1);
+(SELECT *,IF(EXISTS((SELECT COUNT(`file_name`) FROM `views` WHERE `views`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `views` WHERE `views`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `views`,IF(EXISTS((SELECT COUNT(`file_name`) FROM `likes` WHERE `likes`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `likes` WHERE `likes`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `likes`,IF(EXISTS((SELECT COUNT(`file_name`) FROM `comments` WHERE `comments`.`file_name`=`posts`.`file_name` GROUP BY `file_name`))=1,(SELECT COUNT(`file_name`) FROM `comments` WHERE `comments`.`file_name`=`posts`.`file_name` GROUP BY `file_name`),0) AS `comments`,IF(EXISTS((SELECT `full_name` FROM `users` WHERE `users`.`entity_id`=`posts`.`author_id`))=1,(SELECT `full_name` FROM `users` WHERE `users`.`entity_id`=`posts`.`author_id`),'') AS `author_name` FROM `posts` WHERE `entity_id` IS NOT NULL ORDER BY `total_score` DESC LIMIT 0,50);
+(SELECT * FROM `departments`);
+(SELECT * FROM `item_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`product_type_code`=`product_types`.`product_type_code` LIMIT 0,1) AS `picture_file_name` FROM `product_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`work_type_code`=`work_types`.`work_type_code` LIMIT 0,1) AS `picture_file_name` FROM `work_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`facility_type_code`=`facility_types`.`facility_type_code` LIMIT 0,1) AS `picture_file_name` FROM `facility_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`event_type_code`=`event_types`.`event_type_code` LIMIT 0,1) AS `picture_file_name` FROM `event_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`article_type_code`=`article_types`.`article_type_code` LIMIT 0,1) AS `picture_file_name` FROM `article_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`profile_type_code`=`profile_types`.`profile_type_code` LIMIT 0,1) AS `picture_file_name` FROM `profile_types`);
+(SELECT *,(SELECT `picture_file_name` FROM `posts` WHERE `posts`.`status_type_code`=`status_types`.`status_type_code` LIMIT 0,1) AS `picture_file_name` FROM `status_types`);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+(SELECT * FROM `posts` LIMIT 0,6);
+
